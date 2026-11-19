@@ -356,6 +356,9 @@ const SKILLS=[
  {id:'nitro',name:'Nitro',ic:'flame',q:-2,r:1,cost:10000,req:['sup1'],col:'#e8344a',desc:'Press N while driving for a big speed boost.'},
  {id:'fuel1',name:'Fuel Saver I',ic:'fuel',q:0,r:1,cost:2000,req:['start'],col:'#d23b3b',desc:'Use 15% less fuel.'},
  {id:'fuel2',name:'Fuel Saver II',ic:'fuel',q:0,r:2,cost:20000,req:['fuel1'],col:'#d23b3b',desc:'Use 25% less fuel.'},
+ {id:'tank1',name:'Fuel Rack I',ic:'fuel',q:-1,r:2,cost:5000,req:['fuel1'],col:'#d23b3b',desc:'Carry 3 fuel tanks instead of 2.'},
+ {id:'tank2',name:'Fuel Rack II',ic:'fuel',q:-1,r:3,cost:25000,req:['tank1'],col:'#d23b3b',desc:'Carry 4 fuel tanks.'},
+ {id:'tank3',name:'Fuel Rack III',ic:'fuel',q:0,r:3,cost:90000,req:['tank2'],col:'#a64ce0',desc:'Carry 6 fuel tanks.'},
  {id:'tune',name:'Tune Up',ic:'wrench',q:1,r:1,cost:9000,req:['fuel1'],col:'#5d6170',desc:'+10% top speed.'},
  {id:'arm1',name:'Armor I',ic:'shield',q:-1,r:1,cost:1800,req:['start'],col:'#8a93ad',desc:'+25 seat HP. Your seat breaking ends the run.'},
  {id:'arm2',name:'Armor II',ic:'shield',q:-2,r:2,cost:10000,req:['arm1'],col:'#8a93ad',desc:'+60 seat HP.'},
@@ -368,6 +371,7 @@ const SKILLS=[
  {id:'cash2',name:'Cash II',ic:'cash',q:2,r:-3,cost:20000,req:['cash1'],col:'#3fbf5a',desc:'+40% more cash from runs.'},
  {id:'cash3',name:'Cash III',ic:'cash',q:3,r:-4,cost:100000,req:['cash2'],col:'#3fbf5a',desc:'+80% more cash from runs.'},
 ];
+const fuelMax=()=>has('tank3')?6:has('tank2')?4:has('tank1')?3:2;
 const SKM={};SKILLS.forEach(s=>SKM[s.id]=s);
 const AUTOBUY=[{n:'OFF',r:99},{n:'RARE+',r:2},{n:'EPIC+',r:3},{n:'LEGENDARY+',r:4},{n:'MYTHICAL+',r:5},{n:'SPECIAL',r:6},{n:'EVERYTHING',r:0}];
 
@@ -1007,7 +1011,7 @@ function attachedSet(b){b=b||S.build;const seat=b.find(c=>P(c.id).role==='seat')
 function looseParts(b){const ok=attachedSet(b);return(b||S.build).filter(c=>!ok.has(c))}
 function driveBuild(b){b=b||S.build;const k=seatRot(b);const ok=attachedSet(b);b=b.filter(c=>ok.has(c));return b.map(c=>{let x=c.x,z=c.z;for(let i=0;i<k;i++){const t=x;x=-z;z=t}return{id:c.id,x,y:c.y,z,r:(c.r-k+4)%4,src:c}})}
 function carStats(build){build=build||driveBuild();const ps=build.map(c=>({c,p:P(c.id)}));const by=r=>ps.filter(x=>x.p.role===r);
- const eng=by('engine'),fu=by('fuel'),wh=by('wheel'),bl=by('block'),wi=by('wing'),li=by('light'),me=by('melee'),gu=by('gun'),ro=by('roller'),se=by('seat');
+ const eng=by('engine'),fu=by('fuel').sort((a,b)=>b.p.cap-a.p.cap).slice(0,fuelMax()),wh=by('wheel'),bl=by('block'),wi=by('wing'),li=by('light'),me=by('melee'),gu=by('gun'),ro=by('roller'),se=by('seat');
  const rfOf=c=>c.rfid||(c.src&&c.src.rfid);const mass=ps.reduce((a,x)=>a+x.p.wt+(rfOf(x.c)?P(rfOf(x.c)).wt:0),0)+3;
  let minx=99,maxx=-99,minz=99,maxz=-99,maxy=0,cx=0,cz=0,cy=0;for(const{c,p}of ps){minx=Math.min(minx,c.x);maxx=Math.max(maxx,c.x);minz=Math.min(minz,c.z);maxz=Math.max(maxz,c.z);maxy=Math.max(maxy,c.y);cx+=c.x*p.wt;cz+=c.z*p.wt;cy+=c.y*p.wt}
  if(!ps.length){minx=maxx=minz=maxz=0}
@@ -1056,7 +1060,7 @@ function drawBuildUI(){const inv=$('#binv');inv.innerHTML='';const roles=bm.tab=
    t.insertAdjacentHTML('beforeend',`<div class="cnt out3">x${S.inv[p.id]}</div><div class="nm out3">${p.name}</div><div class="od" style="color:${RAR[p.r].c}">${RAR[p.r].n}</div>`);t.title=desc(p);
    t.onclick=()=>{bm.sel=bm.sel===p.id?null:p.id;bm.remove=false;bm.rot=0;drawBuildUI()};g.appendChild(t)})});
  const s=carStats();
- $('#reqs').innerHTML=(looseParts().length?`<div class="chip out3 no">${looseParts().length} not attached (won't come)</div>`:'')+`<div class="chip out3 ${s.nSeat?'ok':'no'}">${s.nSeat?'OK':'NEED'} · Seat</div><div class="chip out3">Engines ${s.nEng}${s.nEng?'':' (you will just roll down the ramp)'}</div><div class="chip out3">Fuel tanks ${s.nFuel}${s.nEng&&!s.nFuel?' (engine needs fuel!)':''}</div>`+`<div class="chip out3">Wheels ${s.nWheel}${s.nWheel===0?' (can\'t drive!)':s.nWheel<3?' (wobbly!)':''}</div><div class="chip out3">Weapons ${s.nSup}</div>`+`<div class="chip out3 ${s.ok?'ok':'no'}">${s.ok?'READY TO DRIVE!':'Not drivable yet'}</div>`;
+ $('#reqs').innerHTML=(()=>{const n=S.build.filter(q=>P(q.id).role==='fuel').length;return`<div class="chip out3 ${n>fuelMax()?'no':'ok'}">Fuel tanks ${n}/${fuelMax()}</div>`})()+(looseParts().length?`<div class="chip out3 no">${looseParts().length} not attached (won't come)</div>`:'')+`<div class="chip out3 ${s.nSeat?'ok':'no'}">${s.nSeat?'OK':'NEED'} · Seat</div><div class="chip out3">Engines ${s.nEng}${s.nEng?'':' (you will just roll down the ramp)'}</div><div class="chip out3">Fuel tanks ${s.nFuel}${s.nEng&&!s.nFuel?' (engine needs fuel!)':''}</div>`+`<div class="chip out3">Wheels ${s.nWheel}${s.nWheel===0?' (can\'t drive!)':s.nWheel<3?' (wobbly!)':''}</div><div class="chip out3">Weapons ${s.nSup}</div>`+`<div class="chip out3 ${s.ok?'ok':'no'}">${s.ok?'READY TO DRIVE!':'Not drivable yet'}</div>`;
  const bal=s.rearW<-.35?'FRONT HEAVY!':s.rearW>.45?'Rear heavy':Math.abs(s.lean)>.35?'Leans to one side!':'Good';$('#bstats').innerHTML=[['Speed',Math.round(s.spd*2)],['Weight',Math.round(s.mass)],['Power',Math.round(s.power)+(s.nEng&&s.ratio<.6?' (too weak!)':'')],['Fuel',Math.round(s.cap)],['Range',fmt(s.range)],['Seat HP',s.hp],['Grip',Math.round(s.grip)],['Guns',s.gdps?Math.round(s.gdps)+'/s':'-'],['Balance',bal]].map(([a,v])=>`<div class="chip out3">${a} <span>${v}</span></div>`).join('');
  $('#btools').innerHTML='';const mk=(t,cls,fn,on)=>{const b=document.createElement('button');b.className='tool out3 '+cls+(on?' on':'');b.textContent=t;b.onclick=fn;$('#btools').appendChild(b)};
  mk('Rotate (R)','blue',()=>{bm.rot=(bm.rot+1)%4});mk(bm.remove?'Remove: ON':'Remove tool','red',()=>{bm.remove=!bm.remove;bm.sel=null;drawBuildUI()},bm.remove);
@@ -1073,7 +1077,7 @@ function pickCell(mx,my){const r=hub.ray;r.setFromCamera({x:mx/innerWidth*2-1,y:
    const d=ax>ay&&ax>az?[Math.sign(n.x),0,0]:ay>az?[0,Math.sign(n.y),0]:[0,0,Math.sign(n.z)];return{place:{x:c.x+d[0],y:c.y+d[1],z:c.z+d[2]},hit:c,dir:d}}}return null}
 function placeRot(pc){if(pc&&pc.rot!=null)return(pc.rot+bm.rot)%4;const p=bm.sel&&P(bm.sel);if(p&&p.role==='melee'&&pc&&pc.dir&&pc.dir[1]===0){const k=pc.dir[2]<0?0:pc.dir[0]<0?1:pc.dir[2]>0?2:3;return(k+bm.rot)%4}return(bm.rot+2)%4}
 function canPlace(id,c){if(!id||(S.inv[id]||0)<1)return'none';if(Math.abs(c.x)>PLOT||Math.abs(c.z)>PLOT||c.y<0||c.y>4)return'Outside the plot';if(occ(c.x,c.y,c.z))return'Spot taken';
- const p=P(id);{const bl=occ(c.x,c.y-1,c.z);if(bl&&isSupport(P(bl.id)))return"You can't stack things on a weapon";if(isSupport(p)&&occ(c.x,c.y+1,c.z))return"Weapons can't go under other parts"}if(p.role==='seat'&&S.build.some(q=>P(q.id).role==='seat'))return'You only need one seat';if(isSupport(p)&&supportsPlaced()>=supportSlots())return`Support slots full (${supportSlots()}). Unlock More Support skills!`;if(S.build.length>=80)return'Part limit reached (80)';return''}
+ const p=P(id);if(p.role==='fuel'&&S.build.filter(q=>P(q.id).role==='fuel').length>=fuelMax())return'Max '+fuelMax()+' fuel tanks. Get more in the Skill Tree!';{const bl=occ(c.x,c.y-1,c.z);if(bl&&isSupport(P(bl.id)))return"You can't stack things on a weapon";if(isSupport(p)&&occ(c.x,c.y+1,c.z))return"Weapons can't go under other parts"}if(p.role==='seat'&&S.build.some(q=>P(q.id).role==='seat'))return'You only need one seat';if(isSupport(p)&&supportsPlaced()>=supportSlots())return`Support slots full (${supportSlots()}). Unlock More Support skills!`;if(S.build.length>=80)return'Part limit reached (80)';return''}
 function updateBuild(dt){if(mode!=='build')return;bm.yaw+=((keys.arrowleft?1:0)-(keys.arrowright?1:0))*2*dt;bm.pitch=clamp(bm.pitch+((keys.arrowup?1:0)-(keys.arrowdown?1:0))*1.2*dt,.15,1.35);{const st=S.build.find(c=>P(c.id).role==='seat');hub.front.visible=!!st;if(st){const a=st.r*Math.PI/2;hub.front.position.set(st.x-Math.sin(a)*1.2,.27+st.y*0+.0,st.z-Math.cos(a)*1.2);hub.front.rotation.y=a}}const cam=hub.camera,t=new THREE.Vector3(0,1,0);cam.position.set(Math.sin(bm.yaw)*Math.cos(bm.pitch)*bm.dist,Math.sin(bm.pitch)*bm.dist+1,Math.cos(bm.yaw)*Math.cos(bm.pitch)*bm.dist);cam.lookAt(t);
  const pc=bm.mouse?pickCell(bm.mouse[0],bm.mouse[1]):null;bm.target=pc;
  if(bm.sel&&pc&&P(bm.sel).role==='brace'){clearGhost();hub.car.children.forEach(m=>{m.scale.setScalar(pc.hit&&m.userData.cell===pc.hit&&P(pc.hit.id).role==='block'?1.12:1)})}else if(bm.sel&&pc){const why=canPlace(bm.sel,pc.place);const g=ghostFor(bm.sel,!why);g.position.set(pc.place.x,pc.place.y+.5+.24,pc.place.z);g.rotation.y=placeRot(pc)*Math.PI/2}else clearGhost();
@@ -1265,7 +1269,7 @@ function updateDrive(dt){const r=run,c=r.c,s=r.s;r.t+=dt;if(r.ended){engineSet(0
  if(c.flipped){c.spd*=Math.pow(.05,dt)}
  else if(!c.air){
   if(c.fuel>0&&thr&&s.nEng&&s.nWheel){if(c.spd<top)c.spd=Math.min(top,c.spd+s.acc*(c.boost>0?2.5:1)*(c.turbo?1.6:1)*dt);else c.spd=Math.max(top,c.spd-6*dt)}
-  else if(brk){if(c.spd>.5)c.spd-=Math.max(12,s.acc*2)*dt;else c.spd=Math.max(-top*.35,c.spd-s.acc*.7*dt)}
+  else if(brk){if(c.spd>.5)c.spd-=Math.max(12,s.acc*2)*dt;else if(c.fuel>0&&s.nEng&&s.nWheel)c.spd=Math.max(-top*.35,c.spd-s.acc*.7*dt);else c.spd=Math.min(0,c.spd+Math.max(12,s.acc*2)*dt)}
   else{const dr=(!s.nWheel?1.6:r.coast?.45:c.fuel>0?1.2:2.2)*dt;c.spd=Math.abs(c.spd)<dr?0:c.spd-Math.sign(c.spd)*dr}
   if(c.boost>0&&c.fuel>0)c.spd=Math.max(c.spd,top*.9);
   c.spd-=9.8*Math.sin(c.pitch)*dt*(r.coast||!s.nWheel?1:.75);
